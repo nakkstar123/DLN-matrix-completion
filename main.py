@@ -39,21 +39,24 @@ def compute_gradient(W_matrices):
     return grads
 
 # Gradient descent parameters
-learning_rate = 0.05
+learning_rate = 0.009
 tolerance = 1e-15
 max_iterations = 1000
 
 # Initialize d and N
-d = 2  # Dimension of the matrices
-N = 10 # Number of random matrices
+d = 10  # Dimension of the matrices
+N = 20 # Number of random matrices
 initial_scale = 1/np.sqrt(d)
 
 # Initialize lists to store results
 x_12_values = []
 x_21_values = []
 
+# Initialize lists to store eigenvalues for convergent cases
+eigenvalues_list = []
+
 # Run the optimization 10 times
-for _ in trange(1000):
+for _ in trange(50):
     # Initialize a list of N random matrices W_i
     W_matrices = [np.random.randn(d, 2) * initial_scale] + [np.random.randn(d, d) * initial_scale for _ in range(N-2)] + [np.random.randn(2, d) * initial_scale]
 
@@ -71,6 +74,17 @@ for _ in trange(1000):
         # Check stopping condition
         if loss < tolerance or iteration >= max_iterations:
             print(f"Converged in {iteration} iterations")
+            # Only store the off-diagonal values and eigenvalues if converged
+            if loss < tolerance:
+                final_X = W_matrices[0]
+                for i in range(1, N):
+                    final_X = W_matrices[i] @ final_X 
+                x_12_values.append(final_X[0, 1])
+                x_21_values.append(final_X[1, 0])
+                
+                # Store the eigenvalues of the converged matrix
+                eigenvalues = np.linalg.eigvals(final_X)
+                eigenvalues_list.append(eigenvalues)
             break
 
         # Compute gradients
@@ -82,17 +96,46 @@ for _ in trange(1000):
 
         iteration += 1
 
-    # Store the off-diagonal values after convergence
-    final_X = W_matrices[0]
-    for i in range(1, N):
-        final_X = W_matrices[i] @ final_X 
-    x_12_values.append(final_X[0, 1])
-    x_21_values.append(final_X[1, 0])
-
 # Plot x_12 vs x_21
-plt.scatter(x_12_values, x_21_values)
-plt.xlabel('X_12')
-plt.ylabel('X_21')
+plt.scatter(x_12_values, x_21_values, label='Data Points', s=10)
+plt.xlabel(r'$x_{12}$')
+plt.ylabel(r'$x_{21}$')
 plt.title('Off-diagonal entries after convergence')
+plt.grid(True)
+plt.xlim(-4, 4)
+plt.ylim(-4, 4)
+
+# Add the graph of y = 1/x with better spacing
+x_values = np.linspace(-4, 0, 100)  # Create a single range from -4 to 4
+y_values = 1 / np.array(x_values)
+plt.plot(x_values, y_values, color='red', label=r'$y = \frac{1}{x}$', linewidth=0.5)
+
+x_values = np.linspace(0, 4, 100)  # Create a single range from -4 to 4
+y_values = 1 / np.array(x_values)
+plt.plot(x_values, y_values, color='red', linewidth=0.5)
+
+plt.legend()
+plt.show()
+
+# Plot the spectrum of all convergent product matrices X in one plot
+plt.figure()
+for eigenvalues in eigenvalues_list:
+    plt.scatter(np.real(eigenvalues), np.imag(eigenvalues), s=10)
+
+plt.axhline(0, color='grey', lw=0.5, ls='--')
+plt.axvline(0, color='grey', lw=0.5, ls='--')
+plt.xlabel('Real Part')
+plt.ylabel('Imaginary Part')
+plt.title('Spectrum of Converged Product Matrices X')
+plt.grid(True)
+plt.legend()
+plt.show()
+
+real_parts = np.concatenate([np.real(eigenvalues) for eigenvalues in eigenvalues_list])  # Collect all real parts
+plt.figure()
+plt.hist(real_parts, bins=30, color='blue', alpha=0.7)  # Create histogram
+plt.xlabel('Real Part of Eigenvalues')
+plt.ylabel('Frequency')
+plt.title('Histogram of Real Parts of Eigenvalues')
 plt.grid(True)
 plt.show()
