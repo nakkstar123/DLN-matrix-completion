@@ -44,8 +44,8 @@ tolerance = 1e-15
 max_iterations = 1000
 
 # Initialize d and N
-d = 10  # Dimension of the matrices
-N = 20 # Number of random matrices
+d = 2  # Dimension of the matrices
+N = 5 # Number of random matrices
 initial_scale = 1/np.sqrt(d)
 
 # Initialize lists to store results
@@ -55,13 +55,27 @@ x_21_values = []
 # Initialize lists to store eigenvalues for convergent cases
 eigenvalues_list = []
 
-# Run the optimization 10 times
-for _ in trange(50):
+# Initialize lists to store the smallest eigenvalues of all W_matrices
+smallest_eigenvalues_all = [[] for _ in range(N)]
+
+# Initialize a list to store the smallest eigenvalues of the product matrix X
+smallest_eigenvalues_X = []
+
+# Initialize a list to store trajectories for all runs
+all_trajectories_w12 = []
+all_trajectories_w21 = []
+
+# Run the optimization N many times
+for run in trange(10):
     # Initialize a list of N random matrices W_i
     W_matrices = [np.random.randn(d, 2) * initial_scale] + [np.random.randn(d, d) * initial_scale for _ in range(N-2)] + [np.random.randn(2, d) * initial_scale]
 
     loss_history = []
     iteration = 0
+
+    # Initialize lists for the current run
+    trajectory_w12 = []
+    trajectory_w21 = []
 
     while True:
         # Compute current X and loss
@@ -94,7 +108,32 @@ for _ in trange(50):
         for i in range(N):
             W_matrices[i] -= learning_rate * grads[i]
 
+        # Store the smallest eigenvalues of all W_matrices
+        if run == 0:
+            for i in range(N):
+                smallest_eigenvalue = np.max(np.abs(np.linalg.eigvals(W_matrices[i])))
+                smallest_eigenvalues_all[i].append(smallest_eigenvalue)
+
+            # Compute the end-to-end product matrix X
+            final_X = W_matrices[0]
+            for i in range(1, N):
+                final_X = W_matrices[i] @ final_X 
+            smallest_eigenvalue_X = np.max(np.abs(np.linalg.eigvals(final_X)))
+            smallest_eigenvalues_X.append(smallest_eigenvalue_X)
+
+            # Store the trajectory of w_12 and w_21 for run == 0
+            trajectory_w12.append(final_X[0, 1])
+            trajectory_w21.append(final_X[1, 0])
+
         iteration += 1
+
+        # Store the trajectory of w_12 and w_21 for the current run
+        trajectory_w12.append(X[0, 1])  # Use X instead of final_X to capture each iteration
+        trajectory_w21.append(X[1, 0])  # Use X instead of final_X to capture each iteration
+
+    # Store the trajectories for the current run
+    all_trajectories_w12.append(trajectory_w12)
+    all_trajectories_w21.append(trajectory_w21)
 
 # Plot x_12 vs x_21
 plt.scatter(x_12_values, x_21_values, label='Data Points', s=10)
@@ -118,24 +157,49 @@ plt.legend()
 plt.show()
 
 # Plot the spectrum of all convergent product matrices X in one plot
-plt.figure()
-for eigenvalues in eigenvalues_list:
-    plt.scatter(np.real(eigenvalues), np.imag(eigenvalues), s=10)
+# plt.figure()
+# for eigenvalues in eigenvalues_list:
+#     plt.scatter(np.real(eigenvalues), np.imag(eigenvalues), s=10)
 
-plt.axhline(0, color='grey', lw=0.5, ls='--')
-plt.axvline(0, color='grey', lw=0.5, ls='--')
-plt.xlabel('Real Part')
-plt.ylabel('Imaginary Part')
-plt.title('Spectrum of Converged Product Matrices X')
+# plt.axhline(0, color='grey', lw=0.5, ls='--')
+# plt.axvline(0, color='grey', lw=0.5, ls='--')
+# plt.xlabel('Real Part')
+# plt.ylabel('Imaginary Part')
+# plt.title('Spectrum of Converged Product Matrices X')
+# plt.grid(True)
+# plt.legend()
+# plt.show()
+
+# real_parts = np.concatenate([np.real(eigenvalues) for eigenvalues in eigenvalues_list])  # Collect all real parts
+# plt.figure()
+# plt.hist(real_parts, bins=30, color='blue', alpha=0.7)  # Create histogram
+# plt.xlabel('Real Part of Eigenvalues')
+# plt.ylabel('Frequency')
+# plt.title('Histogram of Real Parts of Eigenvalues')
+# plt.grid(True)
+# plt.show()
+
+# Plot the smallest eigenvalues of all W_matrices and the product matrix X as a function of iterations
+plt.figure()
+for i in range(N):
+    plt.plot(range(len(smallest_eigenvalues_all[i])), smallest_eigenvalues_all[i], label=r'$W_{' + str(i+1) + '}$')
+plt.plot(range(len(smallest_eigenvalues_X)), smallest_eigenvalues_X, label=r'$X$', linestyle='--')
+plt.xlabel('Iteration')
+plt.ylabel('Largest Eigenvalue')
+plt.title('Evolution of Eigenvalues During Gradient Descent')
 plt.grid(True)
 plt.legend()
 plt.show()
 
-real_parts = np.concatenate([np.real(eigenvalues) for eigenvalues in eigenvalues_list])  # Collect all real parts
-plt.figure()
-plt.hist(real_parts, bins=30, color='blue', alpha=0.7)  # Create histogram
-plt.xlabel('Real Part of Eigenvalues')
-plt.ylabel('Frequency')
-plt.title('Histogram of Real Parts of Eigenvalues')
-plt.grid(True)
-plt.show()
+# # After the optimization loop, plot the trajectory of w_12 and w_21 for all runs
+# plt.figure()
+# for run in range(10):
+#     plt.plot(all_trajectories_w12[run], all_trajectories_w21[run], marker='o', markersize=0.2, label=f'Run {run+1}')
+
+# plt.xlabel(r'$w_{12}$')
+# plt.ylabel(r'$w_{21}$')
+# plt.title('Trajectory of $(w_{12}, w_{21})$ during Gradient Descent for All Runs')
+# plt.grid(True)
+# plt.plot(x_values, y_values, color='red', linewidth=0.5)
+# plt.legend()
+# plt.show()
